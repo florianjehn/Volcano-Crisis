@@ -1,40 +1,25 @@
 """
 Data preparation module for Volcano Crisis analysis.
-This module reads crisis and volcano data, transforms it into analyzable format,
-and performs statistical analysis on the relationship between volcanic eruptions and crises.
+Reads crisis and volcano data, transforms it, and performs statistical analysis.
 """
 
 import pandas as pd
 import numpy as np
-from typing import Optional, Tuple, List
-import warnings
 from pathlib import Path
+import warnings
 
-# Suppress warnings for cleaner output
 warnings.filterwarnings('ignore')
 
 
-def read_crisis_data(filepath: str = '../data/CrisisConsequencesData_NavigatingPolycrisis_2023.03.csv') -> pd.DataFrame:
-    """
-    Read the crisis data from CSV file.
+def read_crisis_data(filepath='data/CrisisConsequencesData_NavigatingPolycrisis_2023.03.csv'):
+    """Read and process crisis data."""
+    print(f"Reading crisis data...")
+    df = pd.read_csv(filepath, encoding='latin1')
     
-    Args:
-        filepath: Path to the crisis data CSV file
-        
-    Returns:
-        DataFrame with crisis data
-    """
-    print(f"Reading crisis data from {filepath}...")
-    df = pd.read_csv(filepath)
-    
-    # Ensure date columns are numeric
+    # Convert date columns to numeric
     df['Polity.Date.From'] = pd.to_numeric(df['Polity.Date.From'], errors='coerce')
     df['Polity.Date.To'] = pd.to_numeric(df['Polity.Date.To'], errors='coerce')
-    
-    # Remove rows with invalid dates
     df = df.dropna(subset=['Polity.Date.From', 'Polity.Date.To'])
-    
-    # Convert to integers
     df['Polity.Date.From'] = df['Polity.Date.From'].astype(int)
     df['Polity.Date.To'] = df['Polity.Date.To'].astype(int)
     
@@ -44,209 +29,95 @@ def read_crisis_data(filepath: str = '../data/CrisisConsequencesData_NavigatingP
     return df
 
 
-def transform_to_yearly_matrix(crisis_df: pd.DataFrame, 
-                              start_year: int = -2500, 
-                              end_year: int = 1920) -> pd.DataFrame:
-    """
-    Transform crisis data into a matrix where rows are years and columns are crisis cases.
-    Values are binary (1 if crisis was active that year, 0 otherwise).
+def transform_to_yearly_matrix(crisis_df, start_year=-2500, end_year=1920):
+    """Transform crisis data into binary matrix (years x crises)."""
+    print(f"Transforming to yearly matrix...")
     
-    Args:
-        crisis_df: DataFrame with crisis data
-        start_year: Starting year for the matrix
-        end_year: Ending year for the matrix
-        
-    Returns:
-        DataFrame with years as index and crisis cases as columns
-    """
-    print(f"Transforming data to yearly matrix from {start_year} to {end_year}...")
-    
-    # Create year range
     years = range(start_year, end_year + 1)
+    crisis_cases = crisis_df['Crisis.Case'].unique()
     
-    # Get unique crisis cases
-    crisis_cases = crisis_df['crisis.case'].unique()
-    
-    # Initialize matrix with zeros
+    # Initialize matrix
     matrix = pd.DataFrame(0, index=years, columns=crisis_cases)
-    matrix.index.name = 'year'
+    matrix.index.name = 'Year'
     
-    # Fill in the matrix
+    # Fill matrix
     for _, row in crisis_df.iterrows():
-        crisis_name = row['crisis.case']
-        from_year = row['Polity.Date.From']
-        to_year = row['Polity.Date.To']
+        crisis_name = row['Crisis.Case']
+        from_year = max(row['Polity.Date.From'], start_year)
+        to_year = min(row['Polity.Date.To'], end_year)
         
-        # Ensure years are within our range
-        from_year = max(from_year, start_year)
-        to_year = min(to_year, end_year)
-        
-        # Mark years when this crisis was active
         if from_year <= to_year:
             matrix.loc[from_year:to_year, crisis_name] = 1
     
-    print(f"Created matrix with {len(matrix)} years and {len(crisis_cases)} unique crises")
-    print(f"Total crisis-years: {matrix.sum().sum()}")
-    
+    print(f"Created matrix: {len(matrix)} years x {len(crisis_cases)} crises")
     return matrix
 
 
-def read_volcano_data(filepath: str = '../data/volcano_list.csv', 
-                     max_year: int = 1920) -> pd.DataFrame:
-    """
-    Read volcano eruption data and filter by year.
-    
-    Args:
-        filepath: Path to the volcano data CSV file
-        max_year: Maximum year to include (exclude modern eruptions)
-        
-    Returns:
-        DataFrame with filtered volcano data
-    """
-    print(f"Reading volcano data from {filepath}...")
+def read_volcano_data(filepath='data/volcano_list.csv', max_year=1920):
+    """Read volcano data and filter by year."""
+    print(f"Reading volcano data...")
     df = pd.read_csv(filepath)
+    df = df[df['Year'] <= max_year].copy()
     
-    # Filter by year
-    df = df[df['year'] <= max_year].copy()
-    
-    print(f"Loaded {len(df)} volcanic eruptions before {max_year}")
-    print(f"VEI 6 eruptions: {len(df[df['VEI'] == 6])}")
-    print(f"VEI 7 eruptions: {len(df[df['VEI'] == 7])}")
+    print(f"Loaded {len(df)} eruptions before {max_year}")
+    print(f"  VEI 6: {len(df[df['VEI'] == 6])} eruptions")
+    print(f"  VEI 7: {len(df[df['VEI'] == 7])} eruptions")
     
     return df
 
 
-def analyze_crisis_after_eruption(crisis_matrix: pd.DataFrame,
-                                 volcano_df: pd.DataFrame,
-                                 years_after: int = 10,
-                                 vei_level: int = 6,
-                                 include_pre_eruption: bool = False) -> dict:
-    """
-    Analyze the number of crises occurring after volcanic eruptions of a specific VEI level.
+def analyze_crisis_after_eruptions(crisis_matrix, volcano_df, years_after=10):
+    """Count crises after all volcanic eruptions (VEI 6 and 7 combined)."""
     
-    Args:
-        crisis_matrix: Binary matrix of crisis occurrences by year
-        volcano_df: DataFrame with volcano eruption data
-        years_after: Number of years after eruption to analyze
-        vei_level: VEI level to analyze (6 or 7)
-        include_pre_eruption: Whether to also analyze years before eruption
-        
-    Returns:
-        Dictionary with analysis results
-    """
-    print(f"\nAnalyzing crises after VEI {vei_level} eruptions (window: {years_after} years)...")
+    # Get all VEI 6 and 7 eruption years
+    eruption_years = volcano_df[volcano_df['VEI'].isin([6, 7])]['Year'].values
     
-    # Filter volcanoes by VEI level
-    eruptions = volcano_df[volcano_df['VEI'] == vei_level]['year'].values
+    crisis_counts = []
+    valid_eruptions = []
     
-    results = {
-        'vei_level': vei_level,
-        'years_after': years_after,
-        'eruption_years': eruptions,
-        'post_eruption_crises': [],
-        'post_eruption_crisis_counts': []
-    }
-    
-    if include_pre_eruption:
-        results['pre_eruption_crises'] = []
-        results['pre_eruption_crisis_counts'] = []
-    
-    # Analyze each eruption
-    for eruption_year in eruptions:
-        # Post-eruption analysis
-        post_start = eruption_year + 1
+    for eruption_year in eruption_years:
+        post_start = eruption_year
         post_end = min(eruption_year + years_after, crisis_matrix.index.max())
         
-        if post_start <= post_end and post_start >= crisis_matrix.index.min():
-            # Count active crises in the post-eruption period
-            post_period = crisis_matrix.loc[post_start:post_end]
-            # Count unique crises that were active at any point during this period
-            active_crises = post_period.sum(axis=0) > 0
-            crisis_count = active_crises.sum()
-            
-            results['post_eruption_crises'].append(active_crises)
-            results['post_eruption_crisis_counts'].append(crisis_count)
-        
-        # Pre-eruption analysis (if requested)
-        if include_pre_eruption:
-            pre_start = max(eruption_year - years_after, crisis_matrix.index.min())
-            pre_end = eruption_year - 1
-            
-            if pre_start <= pre_end:
-                pre_period = crisis_matrix.loc[pre_start:pre_end]
-                active_crises = pre_period.sum(axis=0) > 0
-                crisis_count = active_crises.sum()
-                
-                results['pre_eruption_crises'].append(active_crises)
-                results['pre_eruption_crisis_counts'].append(crisis_count)
+        if post_start >= crisis_matrix.index.min() and post_start <= crisis_matrix.index.max():
+            # Count unique crises active during this period
+            period = crisis_matrix.loc[post_start:post_end]
+            active_crises = (period.sum(axis=0) > 0).sum()
+            crisis_counts.append(active_crises)
+            valid_eruptions.append(eruption_year)
     
-    # Calculate statistics
-    if results['post_eruption_crisis_counts']:
-        results['post_mean'] = np.mean(results['post_eruption_crisis_counts'])
-        results['post_std'] = np.std(results['post_eruption_crisis_counts'])
-        results['post_median'] = np.median(results['post_eruption_crisis_counts'])
-        print(f"  Post-eruption: mean={results['post_mean']:.2f}, "
-              f"std={results['post_std']:.2f}, median={results['post_median']:.1f}")
-    
-    if include_pre_eruption and results.get('pre_eruption_crisis_counts'):
-        results['pre_mean'] = np.mean(results['pre_eruption_crisis_counts'])
-        results['pre_std'] = np.std(results['pre_eruption_crisis_counts'])
-        results['pre_median'] = np.median(results['pre_eruption_crisis_counts'])
-        print(f"  Pre-eruption: mean={results['pre_mean']:.2f}, "
-              f"std={results['pre_std']:.2f}, median={results['pre_median']:.1f}")
-    
-    return results
+    return {
+        'years_after': years_after,
+        'eruption_years': valid_eruptions,
+        'crisis_counts': crisis_counts,
+        'mean': np.mean(crisis_counts) if crisis_counts else 0,
+        'std': np.std(crisis_counts) if crisis_counts else 0,
+        'median': np.median(crisis_counts) if crisis_counts else 0
+    }
 
 
-def random_sampling_analysis(crisis_matrix: pd.DataFrame,
-                            years_window: int = 10,
-                            n_samples: int = 10000,
-                            year_range: Optional[Tuple[int, int]] = None,
-                            seed: int = 42) -> dict:
-    """
-    Perform random sampling to establish baseline crisis frequency.
-    
-    Args:
-        crisis_matrix: Binary matrix of crisis occurrences by year
-        years_window: Number of years to count crises after random point
-        n_samples: Number of random samples to take
-        year_range: Optional tuple of (start_year, end_year) to limit sampling range
-        seed: Random seed for reproducibility
-        
-    Returns:
-        Dictionary with sampling results
-    """
-    print(f"\nPerforming random sampling analysis ({n_samples} samples, {years_window}-year window)...")
+def random_sampling_analysis(crisis_matrix, years_window=10, n_samples=10000, seed=42):
+    """Random sampling to establish baseline crisis frequency."""
     
     np.random.seed(seed)
     
-    # Determine sampling range
-    if year_range:
-        sample_min = max(year_range[0], crisis_matrix.index.min())
-        sample_max = min(year_range[1], crisis_matrix.index.max() - years_window)
-    else:
-        sample_min = crisis_matrix.index.min()
-        sample_max = crisis_matrix.index.max() - years_window
-    
-    print(f"  Sampling from year {sample_min} to {sample_max}")
+    # Sampling range
+    sample_min = crisis_matrix.index.min()
+    sample_max = crisis_matrix.index.max() - years_window
     
     crisis_counts = []
     
     for _ in range(n_samples):
-        # Random starting year
         start_year = np.random.randint(sample_min, sample_max + 1)
         end_year = min(start_year + years_window, crisis_matrix.index.max())
         
-        # Count active crises in this period
+        # Count active crises
         period = crisis_matrix.loc[start_year:end_year]
-        active_crises = period.sum(axis=0) > 0
-        crisis_count = active_crises.sum()
-        
-        crisis_counts.append(crisis_count)
+        active_crises = (period.sum(axis=0) > 0).sum()
+        crisis_counts.append(active_crises)
     
-    results = {
+    return {
         'years_window': years_window,
-        'n_samples': n_samples,
         'crisis_counts': crisis_counts,
         'mean': np.mean(crisis_counts),
         'std': np.std(crisis_counts),
@@ -254,71 +125,44 @@ def random_sampling_analysis(crisis_matrix: pd.DataFrame,
         'percentile_5': np.percentile(crisis_counts, 5),
         'percentile_95': np.percentile(crisis_counts, 95)
     }
-    
-    print(f"  Random sampling: mean={results['mean']:.2f}, std={results['std']:.2f}, "
-          f"median={results['median']:.1f}")
-    print(f"  90% CI: [{results['percentile_5']:.1f}, {results['percentile_95']:.1f}]")
-    
-    return results
 
 
-def perform_statistical_tests(volcano_results: dict, random_results: dict) -> dict:
-    """
-    Perform statistical tests comparing volcanic eruption periods to random sampling.
-    
-    Args:
-        volcano_results: Results from volcanic eruption analysis
-        random_results: Results from random sampling
-        
-    Returns:
-        Dictionary with statistical test results
-    """
+def perform_statistical_tests(volcano_results, random_results):
+    """Statistical tests comparing volcanic periods to random sampling."""
     from scipy import stats
     
-    print(f"\nPerforming statistical tests for VEI {volcano_results['vei_level']}...")
+    volcano_counts = volcano_results['crisis_counts']
+    random_counts = random_results['crisis_counts']
     
     results = {}
-    
-    # Prepare data
-    volcano_counts = volcano_results['post_eruption_crisis_counts']
-    random_counts = random_results['crisis_counts']
     
     if len(volcano_counts) > 0:
         # T-test
         t_stat, t_pval = stats.ttest_ind(volcano_counts, random_counts)
-        results['t_test'] = {'statistic': t_stat, 'p_value': t_pval}
+        results['t_test_pvalue'] = t_pval
         
-        # Mann-Whitney U test (non-parametric)
+        # Mann-Whitney U test
         u_stat, u_pval = stats.mannwhitneyu(volcano_counts, random_counts, alternative='two-sided')
-        results['mann_whitney'] = {'statistic': u_stat, 'p_value': u_pval}
+        results['mann_whitney_pvalue'] = u_pval
         
         # Permutation test
-        def statistic(x, y):
-            return np.mean(x) - np.mean(y)
-        
         perm_result = stats.permutation_test(
             (volcano_counts, random_counts),
-            statistic,
+            lambda x, y: np.mean(x) - np.mean(y),
             permutation_type='independent',
             n_resamples=10000,
             random_state=42
         )
-        results['permutation'] = {
-            'statistic': perm_result.statistic,
-            'p_value': perm_result.pvalue
-        }
+        results['permutation_pvalue'] = perm_result.pvalue
         
-        # Effect size (Cohen's d)
+        # Cohen's d
         pooled_std = np.sqrt(((len(volcano_counts) - 1) * np.var(volcano_counts) + 
                               (len(random_counts) - 1) * np.var(random_counts)) / 
                              (len(volcano_counts) + len(random_counts) - 2))
-        cohen_d = (np.mean(volcano_counts) - np.mean(random_counts)) / pooled_std
-        results['cohen_d'] = cohen_d
-        
-        print(f"  T-test: p={t_pval:.4f}")
-        print(f"  Mann-Whitney U: p={u_pval:.4f}")
-        print(f"  Permutation test: p={perm_result.pvalue:.4f}")
-        print(f"  Cohen's d: {cohen_d:.3f}")
+        if pooled_std > 0:
+            results['cohen_d'] = (np.mean(volcano_counts) - np.mean(random_counts)) / pooled_std
+        else:
+            results['cohen_d'] = 0
     
     return results
 
@@ -326,124 +170,97 @@ def perform_statistical_tests(volcano_results: dict, random_results: dict) -> di
 def main():
     """Main execution function."""
     
-    # Create results directory if it doesn't exist
-    Path('../results').mkdir(parents=True, exist_ok=True)
+    # Create results directory
+    Path('results').mkdir(parents=True, exist_ok=True)
     
-    # Step 1: Read crisis data
+    # Read and process data
     crisis_df = read_crisis_data()
-    
-    # Step 2: Transform to yearly matrix
     crisis_matrix = transform_to_yearly_matrix(crisis_df)
     
-    # Step 3: Save crisis overview
+    # Save crisis overview
     print("\nSaving crisis overview matrix...")
-    crisis_matrix.to_csv('../results/crisis_overview.csv')
-    print(f"Saved to ../results/crisis_overview.csv")
+    crisis_matrix.to_csv('results/crisis_overview.csv')
     
-    # Step 5: Read volcano data
+    # Read volcano data
     volcano_df = read_volcano_data()
     
-    # Step 7: Analyze crises after volcanic eruptions
-    # Test different time windows: 5, 10, 15, 20 years
-    time_windows = [5, 10, 15, 20]
-    all_results = {}
+    # Analyze for time windows from 0 to 100 years in 10-year increments
+    time_windows = range(0, 110, 10)
+    results_data = []
+    
+    print("\nAnalyzing crisis patterns after volcanic eruptions...")
+    print("="*60)
     
     for window in time_windows:
-        print(f"\n{'='*60}")
-        print(f"Analyzing {window}-year window")
-        print('='*60)
+        print(f"\nAnalyzing {window}-year window...")
         
-        # VEI 6 eruptions
-        vei6_results = analyze_crisis_after_eruption(
-            crisis_matrix, volcano_df, 
-            years_after=window, vei_level=6, 
-            include_pre_eruption=True
-        )
-        
-        # VEI 7 eruptions
-        vei7_results = analyze_crisis_after_eruption(
-            crisis_matrix, volcano_df,
-            years_after=window, vei_level=7,
-            include_pre_eruption=True
-        )
+        # Analyze volcanic eruptions
+        volcano_results = analyze_crisis_after_eruptions(crisis_matrix, volcano_df, window)
         
         # Random sampling
-        random_results = random_sampling_analysis(
-            crisis_matrix,
-            years_window=window,
-            n_samples=10000
-        )
+        random_results = random_sampling_analysis(crisis_matrix, window, n_samples=10000)
         
         # Statistical tests
-        vei6_stats = perform_statistical_tests(vei6_results, random_results)
-        vei7_stats = perform_statistical_tests(vei7_results, random_results)
+        stats_results = perform_statistical_tests(volcano_results, random_results)
         
-        # Store results
-        all_results[window] = {
-            'vei6': vei6_results,
-            'vei7': vei7_results,
-            'random': random_results,
-            'vei6_stats': vei6_stats,
-            'vei7_stats': vei7_stats
-        }
+        # Compile results
+        results_data.append({
+            'window_years': window,
+            'volcano_mean': volcano_results['mean'],
+            'volcano_std': volcano_results['std'],
+            'volcano_median': volcano_results['median'],
+            'volcano_n': len(volcano_results['crisis_counts']),
+            'random_mean': random_results['mean'],
+            'random_std': random_results['std'],
+            'random_median': random_results['median'],
+            'random_percentile_5': random_results['percentile_5'],
+            'random_percentile_95': random_results['percentile_95'],
+            'cohen_d': stats_results.get('cohen_d', None),
+            't_test_pvalue': stats_results.get('t_test_pvalue', None),
+            'mann_whitney_pvalue': stats_results.get('mann_whitney_pvalue', None),
+            'permutation_pvalue': stats_results.get('permutation_pvalue', None)
+        })
+        
+        print(f"  Volcanic eruptions: mean={volcano_results['mean']:.2f}, std={volcano_results['std']:.2f}")
+        print(f"  Random baseline: mean={random_results['mean']:.2f}, std={random_results['std']:.2f}")
+        print(f"  Cohen's d: {stats_results.get('cohen_d', 0):.3f}")
+        print(f"  P-value (permutation): {stats_results.get('permutation_pvalue', 1):.4f}")
     
-    # Save comprehensive results
-    print("\n" + "="*60)
-    print("Saving analysis results...")
+    # Save all results
+    results_df = pd.DataFrame(results_data)
+    results_df.to_csv('results/volcano_crisis_analysis.csv', index=False)
     
-    # Save as pickle for complete data preservation
-    import pickle
-    with open('../results/volcano_crisis_analysis.pkl', 'wb') as f:
-        pickle.dump(all_results, f)
-    
-    # Save summary statistics as CSV for easy access
-    summary_data = []
+    # Save detailed counts for visualization
+    detailed_results = []
     for window in time_windows:
-        for analysis_type in ['vei6', 'vei7', 'random']:
-            if analysis_type == 'random':
-                mean = all_results[window][analysis_type]['mean']
-                std = all_results[window][analysis_type]['std']
-                median = all_results[window][analysis_type]['median']
-                n_samples = all_results[window][analysis_type]['n_samples']
-                
-                summary_data.append({
-                    'window_years': window,
-                    'analysis_type': 'random',
-                    'mean_crises': mean,
-                    'std_crises': std,
-                    'median_crises': median,
-                    'n_samples': n_samples
-                })
-            else:
-                results = all_results[window][analysis_type]
-                if 'post_mean' in results:
-                    summary_data.append({
-                        'window_years': window,
-                        'analysis_type': f"{analysis_type}_post",
-                        'mean_crises': results['post_mean'],
-                        'std_crises': results['post_std'],
-                        'median_crises': results['post_median'],
-                        'n_samples': len(results['post_eruption_crisis_counts'])
-                    })
-                
-                if 'pre_mean' in results:
-                    summary_data.append({
-                        'window_years': window,
-                        'analysis_type': f"{analysis_type}_pre",
-                        'mean_crises': results['pre_mean'],
-                        'std_crises': results['pre_std'],
-                        'median_crises': results['pre_median'],
-                        'n_samples': len(results['pre_eruption_crisis_counts'])
-                    })
+        volcano_results = analyze_crisis_after_eruptions(crisis_matrix, volcano_df, window)
+        random_results = random_sampling_analysis(crisis_matrix, window, n_samples=1000)  # Fewer samples for storage
+        
+        # Save volcano counts
+        for count in volcano_results['crisis_counts']:
+            detailed_results.append({
+                'window': window,
+                'type': 'volcano',
+                'crisis_count': count
+            })
+        
+        # Save subset of random counts
+        for count in random_results['crisis_counts']:
+            detailed_results.append({
+                'window': window,
+                'type': 'random',
+                'crisis_count': count
+            })
     
-    summary_df = pd.DataFrame(summary_data)
-    summary_df.to_csv('../results/analysis_summary.csv', index=False)
+    detailed_df = pd.DataFrame(detailed_results)
+    detailed_df.to_csv('results/detailed_crisis_counts.csv', index=False)
     
+    print("\n" + "="*60)
     print("Analysis complete! Results saved to:")
-    print("  - ../results/crisis_overview.csv")
-    print("  - ../results/volcano_crisis_analysis.pkl")
-    print("  - ../results/analysis_summary.csv")
-    print("\nRun plotting.py to visualize the results.")
+    print("  - results/crisis_overview.csv")
+    print("  - results/volcano_crisis_analysis.csv")
+    print("  - results/detailed_crisis_counts.csv")
+    print("\nRun plotting.py to generate visualizations.")
 
 
 if __name__ == "__main__":

@@ -1,18 +1,34 @@
-name,location,VEI,year,source,source_link
-Mount Tambora,Indonesia,7,1815,Oppenheimer 2003,https://doi.org/10.1191/0309133303pp379ra
-Samalas (Rinjani),Indonesia,7,1257,Vidal et al. 2015,https://doi.org/10.1007/s00445-015-0960-9
-Lake Taupo,New Zealand,7,200,Global Volcanism Program,https://volcano.si.edu/volcano.cfm?vn=241070
-Tierra Blanca Joven (Ilopango),El Salvador,7,431,Smith et al. 2020,https://doi.org/10.1073/pnas.2003008117
-Thera (Santorini),Greece,7,-1615,Karstens et al. 2023,https://doi.org/10.1038/s41467-023-38176-3
-Mount Pinatubo,Philippines,6,1991,Global Volcanism Program,https://volcano.si.edu/volcano.cfm?vn=273083
-Novarupta,Alaska USA,6,1912,Hildreth & Fierstein 2012,https://pubs.usgs.gov/pp/1791/
-Santa María,Guatemala,6,1903,Global Volcanism Program,https://volcano.si.edu/volcano.cfm?vn=342030
-Krakatoa,Indonesia,6,1883,Self 1992,https://doi.org/10.1007/BF00177223
-Mystery Eruption,Unknown,6,1808,Cole-Dai et al. 2021,https://agupubs.onlinelibrary.wiley.com/doi/full/10.1029/2020JD032855
-Huaynaputina,Peru,6,1600,Prival et al. 2019,https://doi.org/10.1007/s00445-019-1340-7
-Billy Mitchell,Papua New Guinea,6,1580,Global Volcanism Program,https://volcano.si.edu/volcano.cfm?vn=255001
-Bárðarbunga,Iceland,6,1477,Global Volcanism Program,https://volcano.si.edu/volcano.cfm?vn=373030
-Mystery Eruption (Kuwae),Vanuatu,6,1453,Plummer et al. 2012,https://doi.org/10.5194/cpd-8-1567-2012
-Long Island,Papua New Guinea,6,1665,Blong & Kurbatov 2020,https://doi.org/10.1016/j.jvolgeores.2020.106828
-Quilotoa,Ecuador,6,1280,LaMEVE Database,https://appliedvolc.biomedcentral.com/articles/10.1186/2191-5040-1-4
-El Chichón,Mexico,6,1982,Carey & Sigurdsson 1986,https://doi.org/10.1007/BF01046547
+﻿VEI,Name,Location,Year
+7,Unknown source ,Unknown ,1458
+7,Mount Tambora[7] ,"Sunda Arc, Sumbawa ",1815
+7,Mount Samalas ,Lombok Island ,1257
+7,Taupō Volcano[7] ,Taupō Volcanic Zone ,232
+6,Between Indonesia and Tonga[b] ,Un­known ,1808
+7,Unknown source ,Unknown[d] ,536
+6,Mount Pinatubo[7] ,Luzon Volcanic Arc ,1991
+6,Novarupta[7] ,"SW Alaska, Aleutian Arc ",1912
+6,Santa María[7] ,"Central America Volcanic Arc, Guatemala ",1902
+6,Krakatoa[7] ,Sunda Arc ,1883
+6,"Long Island, PNG ",Bismarck Volcanic Arc ,1660
+6,Huaynaputina ,"Andes, Central Volcanic Zone ",1600
+6,Billy Mitchell ,Bougainville & Solomon Is. ,1580
+6,Bárðarbunga ,Iceland ,1477
+6,Öræfajökull ,Iceland ,1362
+6,Quilotoa ,"Andes, Northern Volcanic Zone ",1280
+6,Baekdu Mountain[7] ,Balhae (China – North Korea border) ,946
+6,Mount Churchill ,eastern Alaska ,847
+6,Rabaul ,Bismarck Volcanic Arc ,683
+6,Dakataua ,Bismarck Volcanic Arc ,653
+6,Lake Ilopango ,"Central America Volcanic Arc, El Salvador ",430
+6,Ambrym ,Vanuatu ,50
+6,Okmok Caldera ,"Umnak, Aleutian Arc ",-43
+6,Raoul Island ,Kermadec Islands,-250
+6,Mount Pinatubo ,Luzon Volcanic Arc ,-1050
+6,Taupō Volcano ,Taupō Volcanic Zone,-1460
+6,"Youngest Caldera, Santorini ",South Aegean Volcanic Arc,-1610
+6,Mount St. Helens ,Cascade Volcanic Arc,-1860
+6,Mount Hudson ,"Andes, Southern Volcanic Zone",-1890
+7,Deception Island[39] ,South Shetland Islands,-1960
+6,"Long Island, PNG ",Bismarck Volcanic Arc ,-2040
+7,Paektu Mountain ,Balhae (China – North Korea border) ,-2264
+7,Cerro Blanco (Argentina) ,"Andes, Central Volcanic Zone ",-2300
