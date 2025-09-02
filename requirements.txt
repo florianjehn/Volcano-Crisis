@@ -1,6 +1,4 @@
 pandas
-setuptools
-pytest
 numpy
 matplotlib
 seaborn
