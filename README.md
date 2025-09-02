@@ -22,15 +22,17 @@ pip install -r requirements.txt
 python main.py
 ```
 
-This creates two plots in `results/`:
-- `before_after_comparison.png` - Main analysis comparing crisis frequency before vs after eruptions
+This creates four plots in `results/`:
+- `before_after_comparison.png` - Main analysis comparing crisis frequency before vs after all major eruptions (VEI 6-7)
+- `vei6_before_after_comparison.png` - Same analysis but for VEI 6 eruptions only
+- `vei7_before_after_comparison.png` - Same analysis but for VEI 7 eruptions only
 - `crisis_timeline.png` - Overview showing all crises and eruption dates
 
 ## Files
 
 - `main.py` - Orchestrates the analysis
 - `data.py` - Loads crisis data, volcano data, computes before/after counts  
-- `plotting.py` - Creates the two essential visualizations
+- `plotting.py` - Creates the four essential visualizations
 - `data/` - Input data files
 - `results/` - Generated plots
 
