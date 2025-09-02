@@ -6,7 +6,7 @@ from plotting import create_all_plots
 
 def main():
     # Set analysis start year (None = all data, or specific year like 1000, 1500, etc.)
-    START_YEAR = 1000
+    START_YEAR = None
     
     print("VOLCANO CRISIS ANALYSIS")
     if START_YEAR:
