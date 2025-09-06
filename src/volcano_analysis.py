@@ -51,9 +51,9 @@ def load_crisis_data(filepath='data/CrisisConsequencesData_NavigatingPolycrisis_
     return df
 
 
-def load_volcano_data(filepath='data/volcano_list.csv', 
-                      max_year=1920, 
-                      min_year=None, 
+def load_volcano_data(filepath='data/volcano_list.csv',
+                      max_year=1907,
+                      min_year=None,
                       continent_filter=None):
     """
     Load volcano data for VEI 6-7 eruptions.
@@ -96,7 +96,7 @@ def get_data_boundaries(crisis_df):
     """
     # Get the earliest and latest years that have any crisis data
     earliest = crisis_df['Polity.Date.From'].min()
-    latest = crisis_df['Polity.Date.To'].max()
+    latest = crisis_df['Polity.Date.From'].max()+1
     
     return earliest, latest
 
@@ -450,22 +450,7 @@ def plot_onset_difference_heatmap(onset_df, stats_df, save_path):
             if pd.isna(pivot_data.iloc[i, j]):
                 ax.add_patch(plt.Rectangle((j, i), 1, 1, fill=True, 
                                          color='lightgray', alpha=0.5))
-    
-    # Add significance markers
-    if len(stats_df) > 0:
-        for j, window in enumerate(pivot_data.columns):
-            window_stats = stats_df[stats_df['window'] == window]
-            if len(window_stats) > 0:
-                n_complete = window_stats.iloc[0]['n_eruptions']
-                # Add sample size annotation
-                ax.text(j + 0.5, -0.8, f'n={n_complete}', 
-                       ha='center', va='top', fontsize=8, color='gray')
-                
-                # Add significance marker if applicable
-                if window_stats.iloc[0]['significant_05']:
-                    marker = '**' if window_stats.iloc[0]['significant_01'] else '*'
-                    ax.text(j + 0.5, -0.3, marker, 
-                           ha='center', va='top', fontsize=12, fontweight='bold')
+
     
     ax.set_xlabel('Time Window (years)', fontsize=11, fontweight='bold')
     ax.set_ylabel('Volcanic Eruption', fontsize=11, fontweight='bold')
@@ -480,11 +465,6 @@ def plot_onset_difference_heatmap(onset_df, stats_df, save_path):
         vei = onset_df[onset_df['eruption_name'] == name]['vei'].iloc[0]
         y_labels.append(f"{name} ({year}, VEI {vei})")
     ax.set_yticklabels(y_labels, rotation=0, fontsize=8)
-    
-    # Add legend for significance
-    ax.text(1.02, 0.98, '* p < 0.05\n** p < 0.01\nn = sample size', 
-           transform=ax.transAxes, fontsize=9,
-           verticalalignment='top')
     
     plt.tight_layout()
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
