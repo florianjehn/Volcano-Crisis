@@ -109,7 +109,7 @@ def compute_before_after_data(crisis_matrix, volcano_df, time_windows=[10, 20, 3
     return df
 
 
-def compute_onset_before_after_data(crisis_df, volcano_df, time_windows=[10, 20, 30, 40, 50, 60, 70, 80, 90, 100], min_year=None):
+def compute_onset_before_after_data(crisis_df, volcano_df, time_windows=[10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200], min_year=None):
     """
     Compute crisis onset counts before and after volcanic eruptions.
     
