@@ -1,147 +1,143 @@
-# Volcano Crisis Analysis
+# Volcano Crisis Onset Analysis
 
-Analyzes whether major volcanic eruptions (VEI 6-7) affect global crisis frequency, using both active crisis counts and crisis onset tracking.
+A streamlined analysis tool that examines whether major volcanic eruptions (VEI 6-7) trigger new global crises by tracking crisis ONSETS rather than ongoing crises.
 
-## Key Features
+## Why Onset Analysis?
 
-### Two Analysis Methods
+Traditional crisis counting has methodological issues:
+- **Double-counting**: Long crises spanning eruption dates get counted in both "before" and "after" periods
+- **Duration bias**: Mixes crisis initiation with persistence
+- **Unclear causality**: Can't distinguish if eruptions trigger NEW crises
 
-1. **Active Crisis Analysis** (Original): Counts all crises active during time windows
-2. **Crisis Onset Analysis** (New): Counts only crises that BEGIN during time windows - provides cleaner signal
+Onset analysis solves these by counting only when crises BEGIN, providing a cleaner causal signal.
 
-### Why Crisis Onset Analysis?
-
-The onset analysis addresses key methodological issues:
-- **Avoids double-counting**: Long-duration crises spanning eruption dates aren't counted twice
-- **Cleaner causality signal**: Tracks if eruptions trigger NEW crises
-- **Less affected by crisis duration**: Focuses on initiation rather than persistence
-- **Better for statistical testing**: Each crisis counted only once at its start
-
-## Usage
+## Quick Start
 
 ```bash
-pip install -r requirements.txt
-python src/main.py
+# Install dependencies
+pip install pandas numpy matplotlib seaborn scipy
+
+# Run analysis
+python volcano_crisis_onset.py
 ```
 
 ## Configuration
 
-Edit `START_YEAR` in `src/main.py`:
-- `None` - All available data (-2300 to 1920 CE)
-- `1000` - Medieval period onwards (better data quality)
-- `1500` - Early modern period onwards (best data quality)
+Edit these variables at the bottom of `volcano_crisis_onset.py`:
+
+```python
+START_YEAR = None    # None for all data, or e.g., 1000 for medieval onwards
+VOLCANO_LIST = None  # None for all volcanoes, or ['Mount Tambora', 'Krakatoa'] etc.
+```
 
 ## Output Structure
 
-### Folder Organization
 ```
 results/
-├── World/                    # Global analysis
-├── Asia/                     # Asia-specific analysis
-├── Europe/                   # Europe-specific analysis
-├── North America/            # North America-specific analysis
-├── South America/            # South America-specific analysis
-├── Oceania/                  # Oceania-specific analysis
-└── Antarctica/               # Antarctica-specific analysis (if applicable)
+├── World/               # Global analysis
+│   ├── onset_comparison.png       # Main before/after comparison
+│   ├── onset_heatmap.png         # Eruption-by-eruption differences  
+│   ├── statistical_summary.png    # P-values and effect sizes
+│   ├── crisis_timeline.png       # Timeline visualization
+│   ├── vei6_onset_comparison.png # VEI 6 only
+│   └── vei7_onset_comparison.png # VEI 7 only
+├── Asia/               # Continental analyses...
+├── Europe/
+├── North America/
+├── South America/
+├── Oceania/
+└── Antarctica/
 ```
 
-### Plot Types (per folder)
+## Reading the Results
 
-#### Active Crisis Plots (Original)
-- `before_after_comparison.png` - All major eruptions (VEI 6-7)
-- `vei6_before_after_comparison.png` - VEI 6 eruptions only
-- `vei7_before_after_comparison.png` - VEI 7 eruptions only
-- `crisis_timeline.png` - Timeline overview
+### Swarm Plots (`onset_comparison.png`)
+- **Each dot**: One eruption's crisis onset count
+- **Green**: Before eruption period
+- **Red**: After eruption period  
+- **Lines**: Mean (thick) and median (thin)
+- **Percentage**: Change from before to after
 
-#### Crisis Onset Plots (New)
-- `onset_before_after_comparison.png` - Onset frequency comparison
-- `vei6_onset_comparison.png` - VEI 6 onset analysis
-- `vei7_onset_comparison.png` - VEI 7 onset analysis
-- `onset_temporal_distribution.png` - When crises start relative to eruptions
-- `onset_difference_heatmap.png` - Differences for each eruption/window
-- `onset_statistical_summary.png` - Statistical significance and effect sizes
-
-## Interpretation Guide
-
-### Reading the Plots
-
-- **Swarm plots**: Each dot = one eruption's count for that time window
-- **Red/Orange colors**: "After eruption" periods
-- **Blue/Green colors**: "Before eruption" periods
-- **Thick lines**: Mean values
-- **Dashed lines**: Median values
-- **Percentages**: Change from before to after
-
-### Statistical Indicators
-
-- `*` = p < 0.05 (statistically significant)
-- `**` = p < 0.01 (highly significant)
-- `***` = p < 0.001 (very highly significant)
-- **Cohen's d**: Effect size (0.2=small, 0.5=medium, 0.8=large)
-
-### Heatmap Colors
-
+### Heatmap (`onset_heatmap.png`)
 - **Red cells**: MORE crises after eruption
 - **Blue cells**: FEWER crises after eruption
-- **White cells**: No change
-- **Numbers**: Difference in crisis count (after - before)
+- **Numbers**: Difference (after - before)
+- **Asterisks**: Statistical significance (* p<0.05, ** p<0.01)
+
+### Statistical Summary (`statistical_summary.png`)
+- **Top plot**: P-values (below orange line = significant)
+- **Bottom plot**: Effect sizes (0.2=small, 0.5=medium, 0.8=large)
 
 ## Method
 
-For each eruption:
-1. Defines time windows (10-100 years)
-2. Counts crises/onsets BEFORE eruption (e.g., years -50 to -1)
-3. Counts crises/onsets AFTER eruption (e.g., years +1 to +50)
-4. Compares using paired statistical tests
-5. Analyzes patterns globally and by continent
+For each volcanic eruption:
+1. Define time windows (10-150 years)
+2. Count crisis onsets BEFORE eruption (e.g., year -50 to -1)
+3. Count crisis onsets AFTER eruption (e.g., year +1 to +50)
+4. Compare using paired t-test (each eruption is its own control)
+5. Calculate effect size (Cohen's d)
 
-## Known Issues & Limitations
+## Data Requirements
 
-### Temporal Recording Bias
-- Historical documentation improves over time
-- Later periods have more recorded crises
-- "After" periods are always later than "before" periods
-- This bias may create false positive results
+```
+data/
+├── CrisisConsequencesData_NavigatingPolycrisis_2023.03.csv
+└── volcano_list.csv
+```
 
-### Data Quality Issues
-- Pre-1000 CE data is sparse
-- Geographic bias (better European records)
-- Major crises more likely recorded than minor ones
-- Crisis definitions vary across time and region
+### Volcano data format (CSV):
+- `VEI`: Volcanic Explosivity Index (6 or 7)
+- `Name`: Volcano name
+- `Location`: Geographic location
+- `Year`: Eruption year
+- `Continent`: Continent name
+
+### Crisis data format (CSV):
+- `Crisis.Case`: Unique crisis identifier
+- `Polity.Date.From`: Crisis start year
+- `Polity.Date.To`: Crisis end year
+- `Continent`: (optional) Continental location
+
+## Key Parameters
+
+- **Time windows**: 10 to 150 years in 10-year increments
+- **VEI levels**: 6 (large) and 7 (super-colossal)  
+- **Statistical test**: Paired t-test
+- **Effect size**: Cohen's d for paired samples
+
+## Interpretation Guide
+
+**Positive onset difference**: More crises begin after eruptions
+**Negative onset difference**: Fewer crises begin after eruptions
+
+**P-value thresholds**:
+- p < 0.05: Statistically significant
+- p < 0.01: Highly significant
+
+**Effect size interpretation**:
+- |d| < 0.2: Negligible
+- |d| = 0.2-0.5: Small
+- |d| = 0.5-0.8: Medium
+- |d| > 0.8: Large
+
+## Known Limitations
+
+1. **Historical recording bias**: Better documentation in recent centuries
+2. **Geographic bias**: Better records for Europe/Asia
+3. **Crisis definition**: Varies across time and culture
+4. **Sample size**: Limited number of VEI 6-7 eruptions
 
 ## Recommendations
 
-1. **Focus on recent data**: Use `START_YEAR = 1000` or later
-2. **Compare onset plots to active crisis plots**: Onset analysis is more reliable
-3. **Check statistical summary**: Look for consistent significance across windows
-4. **Consider regional differences**: Some regions have better data
-5. **Be cautious with interpretation**: Correlation ≠ causation
-
-## Statistical Methods
-
-- **Paired t-test**: Tests if mean difference is significant
-- **Wilcoxon signed-rank test**: Non-parametric alternative
-- **Cohen's d**: Standardized effect size
-- **Temporal detrending**: Available in code but not default
+- Use `START_YEAR = 1000` or later for better data quality
+- Focus on statistical significance across multiple time windows
+- Consider regional differences in data quality
+- Remember: correlation ≠ causation
 
 ## Dependencies
 
 - pandas: Data manipulation
-- numpy: Numerical operations
+- numpy: Numerical operations  
 - matplotlib: Plotting
 - seaborn: Statistical visualizations
 - scipy: Statistical tests
-
-## Data Sources
-
-- Crisis data: CrisisConsequencesData_NavigatingPolycrisis_2023.03.csv
-- Volcano data: volcano_list.csv (VEI 6-7 eruptions)
-
-## Future Improvements
-
-- [ ] Implement temporal detrending
-- [ ] Add bootstrap confidence intervals
-- [ ] Include geographic distance weighting
-- [ ] Add permutation testing
-- [ ] Analyze crisis types separately
-- [ ] Add volcanic winter severity estimates
