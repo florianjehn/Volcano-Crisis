@@ -84,6 +84,23 @@ def load_volcano_data(filepath='data/volcano_list.csv',
     return df
 
 
+def get_data_boundaries(crisis_df):
+    """
+    Determine the actual boundaries of available crisis data.
+    
+    Args:
+        crisis_df: DataFrame with crisis data
+    
+    Returns:
+        Tuple of (earliest_year, latest_year) with data
+    """
+    # Get the earliest and latest years that have any crisis data
+    earliest = crisis_df['Polity.Date.From'].min()
+    latest = crisis_df['Polity.Date.To'].max()
+    
+    return earliest, latest
+
+
 def create_crisis_matrix(crisis_df, start_year=-2500, end_year=1920):
     """
     Create a binary matrix showing which crises were active in which years.
@@ -110,21 +127,27 @@ def create_crisis_matrix(crisis_df, start_year=-2500, end_year=1920):
     return matrix
 
 
-def count_crisis_onsets_in_period(crisis_df, start_year, end_year):
+def count_crisis_onsets_in_period(crisis_df, start_year, end_year, data_boundaries):
     """
     Count the number of crises that BEGIN within a specified period.
-    
-    This is the key function - it counts only NEW crisis starts,
-    avoiding double-counting of long-duration crises.
+    Returns NaN if the period extends beyond available data.
     
     Args:
         crisis_df: DataFrame with crisis data
         start_year: Beginning of period (inclusive)
         end_year: End of period (inclusive)
+        data_boundaries: Tuple of (earliest, latest) years with data
     
     Returns:
-        Number of unique crises that started in this period
+        Number of unique crises that started in this period, or NaN if incomplete data
     """
+    earliest_data, latest_data = data_boundaries
+    
+    # Check if the requested period is fully within available data
+    # We need to ensure we have data for the ENTIRE period
+    if start_year < earliest_data or end_year > latest_data:
+        return np.nan
+    
     # Filter for crises that start within the window
     onsets = crisis_df[
         (crisis_df['Polity.Date.From'] >= start_year) & 
@@ -140,9 +163,7 @@ def compute_onset_before_after_data(crisis_df, volcano_df,
                                    min_year=None):
     """
     Compute crisis onset counts before and after each volcanic eruption.
-    
-    For each eruption and time window, counts how many crises began
-    in the period before vs after the eruption.
+    Returns NaN for windows that extend beyond available data.
     
     Args:
         crisis_df: DataFrame with crisis data
@@ -155,6 +176,10 @@ def compute_onset_before_after_data(crisis_df, volcano_df,
     """
     if time_windows is None:
         time_windows = list(range(10, 160, 10))  # 10, 20, ..., 150
+    
+    # Get data boundaries
+    data_boundaries = get_data_boundaries(crisis_df)
+    earliest_data, latest_data = data_boundaries
     
     results = []
     
@@ -169,13 +194,21 @@ def compute_onset_before_after_data(crisis_df, volcano_df,
             after_start = year + 1
             after_end = year + window
             
-            # Skip if before period extends beyond minimum year
+            # Skip if before period extends beyond minimum year filter
             if min_year and before_start < min_year:
                 continue
             
-            # Count crisis onsets in each period
-            before_onsets = count_crisis_onsets_in_period(crisis_df, before_start, before_end)
-            after_onsets = count_crisis_onsets_in_period(crisis_df, after_start, after_end)
+            # Count crisis onsets in each period (will return NaN if outside data boundaries)
+            before_onsets = count_crisis_onsets_in_period(crisis_df, before_start, before_end, data_boundaries)
+            after_onsets = count_crisis_onsets_in_period(crisis_df, after_start, after_end, data_boundaries)
+            
+            # Calculate difference only if both periods have valid data
+            if pd.notna(before_onsets) and pd.notna(after_onsets):
+                onset_diff = after_onsets - before_onsets
+                onset_ratio = after_onsets / before_onsets if before_onsets > 0 else np.nan
+            else:
+                onset_diff = np.nan
+                onset_ratio = np.nan
             
             results.append({
                 'eruption_year': year,
@@ -184,13 +217,20 @@ def compute_onset_before_after_data(crisis_df, volcano_df,
                 'window': window,
                 'before_onset_count': before_onsets,
                 'after_onset_count': after_onsets,
-                'onset_difference': after_onsets - before_onsets,  # Positive = more after
-                'onset_ratio': after_onsets / before_onsets if before_onsets > 0 else np.nan
+                'onset_difference': onset_diff,
+                'onset_ratio': onset_ratio,
+                'data_complete': pd.notna(before_onsets) and pd.notna(after_onsets)
             })
     
     df = pd.DataFrame(results)
-    # Remove rows where we couldn't calculate both periods
-    df = df.dropna(subset=['before_onset_count', 'after_onset_count'])
+    
+    # Report data availability
+    for window in time_windows:
+        window_data = df[df['window'] == window]
+        complete = window_data['data_complete'].sum()
+        total = len(window_data)
+        if total > 0:
+            print(f"  Window {window:3d}yr: {complete}/{total} eruptions have complete data")
     
     return df
 
@@ -198,9 +238,7 @@ def compute_onset_before_after_data(crisis_df, volcano_df,
 def test_onset_significance(onset_df):
     """
     Perform statistical tests on crisis onset differences.
-    
-    Uses paired t-test to determine if there's a significant difference
-    between before and after periods. Each eruption serves as its own control.
+    Only uses eruptions with complete data for both before and after periods.
     
     Args:
         onset_df: DataFrame from compute_onset_before_after_data
@@ -211,7 +249,9 @@ def test_onset_significance(onset_df):
     results = []
     
     for window in onset_df['window'].unique():
-        window_data = onset_df[onset_df['window'] == window].copy()
+        # Only use eruptions with complete data for this window
+        window_data = onset_df[(onset_df['window'] == window) & 
+                               (onset_df['data_complete'] == True)].copy()
         
         # Skip if insufficient data
         if len(window_data) < 3:
@@ -254,6 +294,10 @@ def create_onset_swarm_plot_data(data_df):
     """Convert onset before/after data to format suitable for swarm plot."""
     plot_data = []
     for _, row in data_df.iterrows():
+        # Only include if we have complete data
+        if not row['data_complete']:
+            continue
+            
         window = row['window']
         plot_data.extend([
             {
@@ -274,18 +318,20 @@ def create_onset_swarm_plot_data(data_df):
     return pd.DataFrame(plot_data)
 
 
-def plot_onset_swarm_comparison(data_df, title, save_path):
+def plot_onset_swarm_comparison(data_df, title, save_path, stats_df=None):
     """
     Create swarm plot comparing crisis onsets before vs after eruptions.
-    
-    Each dot represents one eruption's onset count for that time window.
-    Lines show means and medians for each period.
+    Only plots eruptions with complete data.
     """
-    if len(data_df) == 0:
+    # Filter for complete data only
+    complete_data = data_df[data_df['data_complete'] == True].copy()
+    
+    if len(complete_data) == 0:
+        print(f"  No complete data for {title}")
         return
     
-    plot_df = create_onset_swarm_plot_data(data_df)
-    windows = sorted(data_df['window'].unique())
+    plot_df = create_onset_swarm_plot_data(complete_data)
+    windows = sorted(complete_data['window'].unique())
     
     # Create group order for x-axis
     group_order = []
@@ -302,14 +348,16 @@ def plot_onset_swarm_comparison(data_df, title, save_path):
     
     # Add mean and median lines with statistical annotations
     for i, window in enumerate(windows):
-        before_data = data_df[data_df['window'] == window]['before_onset_count']
-        after_data = data_df[data_df['window'] == window]['after_onset_count']
+        window_complete = complete_data[complete_data['window'] == window]
+        before_data = window_complete['before_onset_count']
+        after_data = window_complete['after_onset_count']
         
         before_x, after_x = i * 2, i * 2 + 1
         
         # Calculate statistics
         mean_before = before_data.mean()
         mean_after = after_data.mean()
+        n_samples = len(window_complete)
         
         # Means (thick lines)
         ax.hlines(mean_before, before_x - 0.35, before_x + 0.35, 
@@ -325,6 +373,10 @@ def plot_onset_swarm_comparison(data_df, title, save_path):
         ax.hlines(after_data.median(), after_x - 0.25, after_x + 0.25,
                  colors='darkred', linewidth=1.5, linestyles='--', alpha=0.7)
         
+        # Add sample size annotation
+        ax.text((before_x + after_x) / 2, ax.get_ylim()[0] + 0.5,
+               f'n={n_samples}', ha='center', fontsize=8, color='gray')
+        
         # Add percentage change annotation
         if mean_before > 0:
             pct_change = ((mean_after - mean_before) / mean_before) * 100
@@ -335,7 +387,7 @@ def plot_onset_swarm_comparison(data_df, title, save_path):
                    fontweight='bold')
     
     # Add year range to title
-    year_range = f"{data_df['eruption_year'].min()}-{data_df['eruption_year'].max()} CE"
+    year_range = f"{complete_data['eruption_year'].min()}-{complete_data['eruption_year'].max()} CE"
     full_title = f"{title}\n({year_range})"
     
     ax.set_xlabel('Time Window', fontsize=12, fontweight='bold')
@@ -361,19 +413,18 @@ def plot_onset_swarm_comparison(data_df, title, save_path):
 def plot_onset_difference_heatmap(onset_df, stats_df, save_path):
     """
     Create heatmap showing the difference in crisis onsets (after - before) for each eruption.
-    
-    Red cells indicate more crises after eruption, blue indicates fewer.
-    Statistical significance is marked with asterisks.
+    Gray cells indicate missing data (period extends beyond available data).
     """
     if len(onset_df) == 0:
         return
     
     # Pivot data to create matrix for heatmap
+    # Use onset_difference which is NaN for incomplete data
     pivot_data = onset_df.pivot_table(
         index='eruption_name',
         columns='window',
         values='onset_difference',
-        aggfunc='mean'
+        aggfunc='first'  # Use first since there should be only one value per cell
     )
     
     # Sort by eruption year
@@ -383,26 +434,43 @@ def plot_onset_difference_heatmap(onset_df, stats_df, save_path):
     # Create figure with appropriate size
     fig, ax = plt.subplots(figsize=(10, max(6, len(pivot_data) * 0.3)))
     
-    # Create heatmap with improved readability
+    # Create custom colormap with gray for missing data
+    cmap = sns.diverging_palette(250, 10, as_cmap=True)
+    
+    # Create heatmap with NaN shown as gray
     sns.heatmap(pivot_data, annot=True, fmt='.0f', center=0,
-                cmap='RdBu_r', vmin=-8, vmax=8,
+                cmap=cmap, vmin=-8, vmax=8,
                 cbar_kws={'label': 'Onset Difference (After - Before)'},
-                ax=ax, linewidths=0.5, annot_kws={'size': 8})
+                ax=ax, linewidths=0.5, annot_kws={'size': 8},
+                mask=pivot_data.isna())  # This will show NaN as background color
+    
+    # Add gray patches for missing data
+    for i in range(len(pivot_data.index)):
+        for j in range(len(pivot_data.columns)):
+            if pd.isna(pivot_data.iloc[i, j]):
+                ax.add_patch(plt.Rectangle((j, i), 1, 1, fill=True, 
+                                         color='lightgray', alpha=0.5))
     
     # Add significance markers
     if len(stats_df) > 0:
         for j, window in enumerate(pivot_data.columns):
             window_stats = stats_df[stats_df['window'] == window]
-            if len(window_stats) > 0 and window_stats.iloc[0]['significant_05']:
-                # Add asterisk for significant windows
-                marker = '**' if window_stats.iloc[0]['significant_01'] else '*'
-                ax.text(j + 0.5, -0.5, marker, 
-                       ha='center', va='top', fontsize=12, fontweight='bold')
+            if len(window_stats) > 0:
+                n_complete = window_stats.iloc[0]['n_eruptions']
+                # Add sample size annotation
+                ax.text(j + 0.5, -0.8, f'n={n_complete}', 
+                       ha='center', va='top', fontsize=8, color='gray')
+                
+                # Add significance marker if applicable
+                if window_stats.iloc[0]['significant_05']:
+                    marker = '**' if window_stats.iloc[0]['significant_01'] else '*'
+                    ax.text(j + 0.5, -0.3, marker, 
+                           ha='center', va='top', fontsize=12, fontweight='bold')
     
     ax.set_xlabel('Time Window (years)', fontsize=11, fontweight='bold')
     ax.set_ylabel('Volcanic Eruption', fontsize=11, fontweight='bold')
     ax.set_title('Crisis Onset Differences: After minus Before Eruption\n' +
-                '(Red = More after, Blue = More before)',
+                '(Red = More after, Blue = More before, Gray = Incomplete data)',
                 fontsize=12, fontweight='bold')
     
     # Add year labels to eruption names
@@ -413,8 +481,8 @@ def plot_onset_difference_heatmap(onset_df, stats_df, save_path):
         y_labels.append(f"{name} ({year}, VEI {vei})")
     ax.set_yticklabels(y_labels, rotation=0, fontsize=8)
     
-    # Add significance legend
-    ax.text(1.02, 0.98, '* p < 0.05\n** p < 0.01', 
+    # Add legend for significance
+    ax.text(1.02, 0.98, '* p < 0.05\n** p < 0.01\nn = sample size', 
            transform=ax.transAxes, fontsize=9,
            verticalalignment='top')
     
@@ -426,8 +494,7 @@ def plot_onset_difference_heatmap(onset_df, stats_df, save_path):
 def plot_statistical_summary(stats_df, save_path):
     """
     Create plot showing statistical significance across time windows.
-    
-    Shows p-values and effect sizes to assess whether differences are meaningful.
+    Shows p-values and effect sizes with sample sizes annotated.
     """
     if len(stats_df) == 0:
         return
@@ -440,6 +507,14 @@ def plot_statistical_summary(stats_df, save_path):
             marker='o', linewidth=2, markersize=8, color='darkblue')
     ax1.axhline(y=0.05, color='orange', linestyle='--', alpha=0.7, label='p = 0.05')
     ax1.axhline(y=0.01, color='red', linestyle='--', alpha=0.7, label='p = 0.01')
+    
+    # Add sample size annotations
+    for _, row in stats_df.iterrows():
+        ax1.annotate(f"n={row['n_eruptions']}", 
+                    (row['window'], row['p_value']),
+                    textcoords="offset points", xytext=(0, 8),
+                    ha='center', fontsize=7, color='gray')
+    
     ax1.set_xlabel('Time Window (years)', fontsize=11)
     ax1.set_ylabel('P-value (paired t-test)', fontsize=11)
     ax1.set_title('Statistical Significance by Time Window', fontsize=12, fontweight='bold')
@@ -463,6 +538,14 @@ def plot_statistical_summary(stats_df, save_path):
     ax2.axhline(y=0.2, color='gray', linestyle=':', alpha=0.5, label='Small')
     ax2.axhline(y=0.5, color='gray', linestyle=':', alpha=0.5, label='Medium')
     ax2.axhline(y=0.8, color='gray', linestyle=':', alpha=0.5, label='Large')
+    
+    # Add sample size as secondary y-axis
+    ax2_twin = ax2.twinx()
+    ax2_twin.bar(stats_df['window'], stats_df['n_eruptions'], 
+                alpha=0.2, color='gray', width=8)
+    ax2_twin.set_ylabel('Sample Size (n)', fontsize=10, color='gray')
+    ax2_twin.tick_params(axis='y', labelcolor='gray')
+    
     ax2.set_xlabel('Time Window (years)', fontsize=11)
     ax2.set_ylabel("Cohen's d (Effect Size)", fontsize=11)
     ax2.set_title('Effect Size by Time Window', fontsize=12, fontweight='bold')
@@ -477,7 +560,8 @@ def plot_statistical_summary(stats_df, save_path):
                         textcoords="offset points", xytext=(0,5),
                         ha='center', fontsize=8, color='darkred')
     
-    plt.suptitle('Statistical Analysis of Crisis Onsets Around Volcanic Eruptions', 
+    plt.suptitle('Statistical Analysis of Crisis Onsets Around Volcanic Eruptions\n' + 
+                '(Sample size decreases with window size due to data availability)', 
                 fontsize=13, fontweight='bold', y=1.02)
     plt.tight_layout()
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
@@ -487,7 +571,6 @@ def plot_statistical_summary(stats_df, save_path):
 def plot_crisis_timeline(crisis_matrix, volcano_df, save_path):
     """
     Create timeline showing crises and eruptions.
-    
     Visualizes the temporal relationship between volcanic eruptions and crisis periods.
     """
     fig, ax = plt.subplots(figsize=(16, 8))
@@ -579,6 +662,11 @@ def run_analysis(start_year=None, volcano_list=None):
     # Load global data
     print("\nLoading data...")
     crisis_df = load_crisis_data()
+    
+    # Report data boundaries
+    earliest, latest = get_data_boundaries(crisis_df)
+    print(f"Crisis data available from {earliest} to {latest} CE")
+    
     crisis_matrix = create_crisis_matrix(crisis_df)
     volcano_df = load_volcano_data(min_year=start_year)
     
@@ -593,6 +681,7 @@ def run_analysis(start_year=None, volcano_list=None):
     print("GLOBAL ANALYSIS")
     print("=" * 60)
     
+    print("\nData availability by time window:")
     onset_df = compute_onset_before_after_data(crisis_df, volcano_df, min_year=start_year)
     stats_df = test_onset_significance(onset_df)
     
@@ -601,18 +690,19 @@ def run_analysis(start_year=None, volcano_list=None):
     output_dir.mkdir(parents=True, exist_ok=True)
     
     # Create plots for global analysis
-    print("Creating global plots...")
+    print("\nCreating global plots...")
     
     # Main comparison plot
     plot_onset_swarm_comparison(
         onset_df,
         'Crisis ONSET Frequency Before vs After Major Volcanic Eruptions (VEI 6-7) - Global',
-        output_dir / 'onset_comparison.png'
+        output_dir / 'onset_comparison.png',
+        stats_df
     )
     
     # VEI-specific plots
     vei6_data = onset_df[onset_df['vei'] == 6]
-    if len(vei6_data) > 0:
+    if len(vei6_data[vei6_data['data_complete'] == True]) > 0:
         plot_onset_swarm_comparison(
             vei6_data,
             'Crisis ONSET Frequency Before vs After VEI 6 Eruptions - Global',
@@ -620,7 +710,7 @@ def run_analysis(start_year=None, volcano_list=None):
         )
     
     vei7_data = onset_df[onset_df['vei'] == 7]
-    if len(vei7_data) > 0:
+    if len(vei7_data[vei7_data['data_complete'] == True]) > 0:
         plot_onset_swarm_comparison(
             vei7_data,
             'Crisis ONSET Frequency Before vs After VEI 7 Eruptions - Global',
@@ -635,7 +725,8 @@ def run_analysis(start_year=None, volcano_list=None):
     # Print global results
     if len(stats_df) > 0:
         print("\nGlobal Results Summary:")
-        print(f"Analyzed {len(onset_df['eruption_name'].unique())} eruptions")
+        complete_eruptions = onset_df.groupby('eruption_name')['data_complete'].any().sum()
+        print(f"Analyzed {complete_eruptions} eruptions with at least some complete windows")
         print(f"Date range: {onset_df['eruption_year'].min()}-{onset_df['eruption_year'].max()} CE")
         
         sig_windows = stats_df[stats_df['significant_05']]
@@ -643,7 +734,7 @@ def run_analysis(start_year=None, volcano_list=None):
             print(f"\nSignificant differences found in {len(sig_windows)}/{len(stats_df)} time windows:")
             for _, row in sig_windows.iterrows():
                 print(f"  {row['window']:3d}yr: Δ={row['mean_difference']:+.2f} crises, "
-                      f"p={row['p_value']:.4f}, d={row['cohens_d']:+.3f}")
+                      f"p={row['p_value']:.4f}, d={row['cohens_d']:+.3f}, n={row['n_eruptions']}")
         else:
             print("No statistically significant differences found")
     
@@ -655,6 +746,11 @@ def run_analysis(start_year=None, volcano_list=None):
         
         # Load continent-specific data
         crisis_df_cont = load_crisis_data(continent_filter=continent)
+        
+        if len(crisis_df_cont) == 0:
+            print(f"No crisis data for {continent}")
+            continue
+            
         crisis_matrix_cont = create_crisis_matrix(crisis_df_cont)
         volcano_df_cont = load_volcano_data(min_year=start_year, continent_filter=continent)
         
@@ -665,10 +761,11 @@ def run_analysis(start_year=None, volcano_list=None):
             print(f"No eruptions found for {continent}")
             continue
         
+        print(f"\nData availability for {continent}:")
         onset_df_cont = compute_onset_before_after_data(crisis_df_cont, volcano_df_cont, min_year=start_year)
         
-        if len(onset_df_cont) == 0:
-            print(f"Insufficient data for {continent}")
+        if len(onset_df_cont[onset_df_cont['data_complete'] == True]) == 0:
+            print(f"No complete data windows for {continent}")
             continue
         
         stats_df_cont = test_onset_significance(onset_df_cont)
@@ -683,12 +780,13 @@ def run_analysis(start_year=None, volcano_list=None):
         plot_onset_swarm_comparison(
             onset_df_cont,
             f'Crisis ONSET Frequency Before vs After Major Volcanic Eruptions - {continent}',
-            output_dir_cont / 'onset_comparison.png'
+            output_dir_cont / 'onset_comparison.png',
+            stats_df_cont
         )
         
         # VEI-specific plots
         vei6_data_cont = onset_df_cont[onset_df_cont['vei'] == 6]
-        if len(vei6_data_cont) > 0:
+        if len(vei6_data_cont[vei6_data_cont['data_complete'] == True]) > 0:
             plot_onset_swarm_comparison(
                 vei6_data_cont,
                 f'Crisis ONSET Frequency Before vs After VEI 6 Eruptions - {continent}',
@@ -696,7 +794,7 @@ def run_analysis(start_year=None, volcano_list=None):
             )
         
         vei7_data_cont = onset_df_cont[onset_df_cont['vei'] == 7]
-        if len(vei7_data_cont) > 0:
+        if len(vei7_data_cont[vei7_data_cont['data_complete'] == True]) > 0:
             plot_onset_swarm_comparison(
                 vei7_data_cont,
                 f'Crisis ONSET Frequency Before vs After VEI 7 Eruptions - {continent}',
@@ -712,7 +810,8 @@ def run_analysis(start_year=None, volcano_list=None):
         # Print continent results
         if len(stats_df_cont) > 0:
             print(f"\n{continent} Results:")
-            print(f"Analyzed {len(onset_df_cont['eruption_name'].unique())} eruptions")
+            complete_eruptions = onset_df_cont.groupby('eruption_name')['data_complete'].any().sum()
+            print(f"Analyzed {complete_eruptions} eruptions with complete data")
             
             sig_windows_cont = stats_df_cont[stats_df_cont['significant_05']]
             if len(sig_windows_cont) > 0:
@@ -728,9 +827,10 @@ def run_analysis(start_year=None, volcano_list=None):
     print("  - statistical_summary.png: Significance and effect sizes")
     print("  - crisis_timeline.png: Temporal overview")
     print("\nInterpretation:")
+    print("  - Gray cells in heatmap = insufficient data for that time window")
+    print("  - Sample sizes decrease with larger windows (data availability)")
+    print("  - Statistical tests only use eruptions with complete data")
     print("  - Positive values = MORE crises after eruptions")
-    print("  - Statistical significance: * p<0.05, ** p<0.01")
-    print("  - Effect size: 0.2=small, 0.5=medium, 0.8=large")
 
 
 # =============================================================================
