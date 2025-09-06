@@ -93,7 +93,7 @@ def plot_swarm_comparison(data_df, title, save_path):
     plt.close()
 
 
-def plot_crisis_timeline(crisis_matrix, volcano_df, save_path='results/crisis_timeline.png'):
+def plot_crisis_timeline(crisis_matrix, volcano_df, save_path):
     """Create timeline showing crises and eruptions."""
     fig, ax = plt.subplots(figsize=(20, 10))
     
@@ -157,24 +157,33 @@ def plot_crisis_timeline(crisis_matrix, volcano_df, save_path='results/crisis_ti
     plt.close()
 
 
-def create_all_plots(crisis_matrix, volcano_df, before_after_df):
-    """Create all visualizations."""
-    Path('results').mkdir(exist_ok=True)
+def create_all_plots(crisis_matrix, volcano_df, before_after_df, output_subfolder='World'):
+    """Create all visualizations in the specified subfolder."""
+    # Create output directory structure
+    output_dir = Path('results') / output_subfolder
+    output_dir.mkdir(parents=True, exist_ok=True)
     
+    # Adjust title to include region
+    region_label = output_subfolder if output_subfolder != 'World' else 'Global'
+    
+    # Main comparison plot
     plot_swarm_comparison(before_after_df, 
-                         'Crisis Frequency Before vs After Major Volcanic Eruptions (VEI 6-7)',
-                         'results/before_after_comparison.png')
+                         f'Crisis Frequency Before vs After Major Volcanic Eruptions (VEI 6-7) - {region_label}',
+                         output_dir / 'before_after_comparison.png')
     
+    # VEI 6 specific plot
     vei6_data = before_after_df[before_after_df['vei'] == 6]
     if len(vei6_data) > 0:
         plot_swarm_comparison(vei6_data,
-                             'Crisis Frequency Before vs After VEI 6 Volcanic Eruptions',
-                             'results/vei6_before_after_comparison.png')
+                             f'Crisis Frequency Before vs After VEI 6 Volcanic Eruptions - {region_label}',
+                             output_dir / 'vei6_before_after_comparison.png')
     
+    # VEI 7 specific plot
     vei7_data = before_after_df[before_after_df['vei'] == 7]
     if len(vei7_data) > 0:
         plot_swarm_comparison(vei7_data,
-                             'Crisis Frequency Before vs After VEI 7 Volcanic Eruptions',
-                             'results/vei7_before_after_comparison.png')
+                             f'Crisis Frequency Before vs After VEI 7 Volcanic Eruptions - {region_label}',
+                             output_dir / 'vei7_before_after_comparison.png')
     
-    plot_crisis_timeline(crisis_matrix, volcano_df)
+    # Timeline plot
+    plot_crisis_timeline(crisis_matrix, volcano_df, output_dir / 'crisis_timeline.png')
