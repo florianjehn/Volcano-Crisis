@@ -71,10 +71,13 @@ def compute_before_after_data(crisis_matrix, volcano_df, time_windows=[10, 20, 3
     return df
 
 
-def load_all_data(start_year=None):
+def load_all_data(start_year=None, volcano_list=None):
     crisis_df = load_crisis_data()
     crisis_matrix = create_crisis_matrix(crisis_df)
     volcano_df = load_volcano_data(min_year=start_year)
+    # Filter volcanoes if a specific list is provided
+    if volcano_list:
+        volcano_df = volcano_df[volcano_df['Name'].isin(volcano_list)]
     before_after_df = compute_before_after_data(crisis_matrix, volcano_df, min_year=start_year)
     
     if start_year:

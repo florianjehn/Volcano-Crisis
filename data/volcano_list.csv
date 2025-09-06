@@ -1,34 +1,34 @@
-﻿VEI,Name,Location,Year
-7,Unknown source ,Unknown ,1458
-7,Mount Tambora[7] ,"Sunda Arc, Sumbawa ",1815
-7,Mount Samalas ,Lombok Island ,1257
-7,Taupō Volcano[7] ,Taupō Volcanic Zone ,232
-6,Between Indonesia and Tonga[b] ,Un­known ,1808
-7,Unknown source ,Unknown[d] ,536
-6,Mount Pinatubo[7] ,Luzon Volcanic Arc ,1991
-6,Novarupta[7] ,"SW Alaska, Aleutian Arc ",1912
-6,Santa María[7] ,"Central America Volcanic Arc, Guatemala ",1902
-6,Krakatoa[7] ,Sunda Arc ,1883
-6,"Long Island, PNG ",Bismarck Volcanic Arc ,1660
-6,Huaynaputina ,"Andes, Central Volcanic Zone ",1600
-6,Billy Mitchell ,Bougainville & Solomon Is. ,1580
-6,Bárðarbunga ,Iceland ,1477
-6,Öræfajökull ,Iceland ,1362
-6,Quilotoa ,"Andes, Northern Volcanic Zone ",1280
-6,Baekdu Mountain[7] ,Balhae (China – North Korea border) ,946
-6,Mount Churchill ,eastern Alaska ,847
-6,Rabaul ,Bismarck Volcanic Arc ,683
-6,Dakataua ,Bismarck Volcanic Arc ,653
-6,Lake Ilopango ,"Central America Volcanic Arc, El Salvador ",430
-6,Ambrym ,Vanuatu ,50
-6,Okmok Caldera ,"Umnak, Aleutian Arc ",-43
-6,Raoul Island ,Kermadec Islands,-250
-6,Mount Pinatubo ,Luzon Volcanic Arc ,-1050
-6,Taupō Volcano ,Taupō Volcanic Zone,-1460
-6,"Youngest Caldera, Santorini ",South Aegean Volcanic Arc,-1610
-6,Mount St. Helens ,Cascade Volcanic Arc,-1860
-6,Mount Hudson ,"Andes, Southern Volcanic Zone",-1890
-7,Deception Island[39] ,South Shetland Islands,-1960
-6,"Long Island, PNG ",Bismarck Volcanic Arc ,-2040
-7,Paektu Mountain ,Balhae (China – North Korea border) ,-2264
-7,Cerro Blanco (Argentina) ,"Andes, Central Volcanic Zone ",-2300
+VEI,Name,Location,Year,Continent
+7,"Unknown source ","Unknown ",1458,Oceania
+7,Mount Tambora,"Sunda Arc, Sumbawa ",1815,Asia
+7,"Mount Samalas ","Lombok Island ",1257,Asia
+7,"Taupō Volcano ","Taupō Volcanic Zone ",232,Oceania
+6,"Between Indonesia and Tonga ","Un­known ",1808,Oceania
+7,"Unknown source ","Unknown ",536,North America
+6,"Mount Pinatubo ","Luzon Volcanic Arc ",1991,Asia
+6,"Novarupta ","SW Alaska, Aleutian Arc ",1912,North America
+6,"Santa María ","Central America Volcanic Arc, Guatemala ",1902,North America
+6,"Krakatoa ","Sunda Arc ",1883,Asia
+6,"Long Island, PNG ","Bismarck Volcanic Arc ",1660,Oceania
+6,"Huaynaputina ","Andes, Central Volcanic Zone ",1600,South America
+6,"Billy Mitchell ","Bougainville & Solomon Is. ",1580,Oceania
+6,"Bárðarbunga ","Iceland ",1477,Europe
+6,"Öræfajökull ","Iceland ",1362,Europe
+6,"Quilotoa ","Andes, Northern Volcanic Zone ",1280,South America
+6,"Baekdu Mountain ","Balhae (China – North Korea border) ",946,Asia
+6,"Mount Churchill ","eastern Alaska ",847,North America
+6,"Rabaul ","Bismarck Volcanic Arc ",683,Oceania
+6,"Dakataua ","Bismarck Volcanic Arc ",653,Oceania
+6,"Lake Ilopango ","Central America Volcanic Arc, El Salvador ",430,North America
+6,"Ambrym ","Vanuatu ",50,Oceania
+6,"Okmok Caldera ","Umnak, Aleutian Arc ",-43,North America
+6,"Raoul Island ",Kermadec Islands,-250,Oceania
+6,"Mount Pinatubo ","Luzon Volcanic Arc ",-1050,Asia
+6,"Taupō Volcano ",Taupō Volcanic Zone,-1460,Oceania
+6,"Youngest Caldera, Santorini ",South Aegean Volcanic Arc,-1610,Europe
+6,"Mount St. Helens ",Cascade Volcanic Arc,-1860,North America
+6,"Mount Hudson ","Andes, Southern Volcanic Zone",-1890,South America
+7,"Deception Island ",South Shetland Islands,-1960,Antarctica
+6,"Long Island, PNG ","Bismarck Volcanic Arc ",-2040,Oceania
+7,"Paektu Mountain ","Balhae (China – North Korea border) ",-2264,Asia
+7,"Cerro Blanco (Argentina) ","Andes, Central Volcanic Zone ",-2300,South America
